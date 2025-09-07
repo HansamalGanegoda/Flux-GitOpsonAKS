@@ -1,69 +1,123 @@
-# Flux-GitOpsonAKS
 
-This repository contains configuration files for managing Kubernetes clusters using [Flux](https://fluxcd.io/). It is structured to support GitOps workflows for cluster management and deployment on AKS (Azure Kubernetes Service).
+# Flux GitOps Upgrade on AKS
 
-## Repository Structure
+## Overview
+
+This project demonstrates a GitOps approach to upgrade Flux CD components on an Azure Kubernetes Service (AKS) cluster.
+
+Flux CD is a continuous delivery tool for Kubernetes that synchronizes cluster state with configuration in a Git repository. This project specifically enables:
+
+- **Automatic upgrades** of Flux controllers (kustomize-controller, notification-controller, etc.) based on a version file in Git.
+- **GitOps workflow** via GitHub Actions.
+- **Declarative control:** updating `flux-version.txt` triggers upgrades.
+
+## Architecture
 
 ```
-clusters/
-  my-cluster/
-    flux-system/
-      flux-version.txt
-      gotk-components.yaml
-      gotk-sync.yaml
-      kustomization.yaml
+GitHub Repository
+│
+├─ clusters/my-cluster/flux-system/flux-version.txt  # Desired versions of Flux controllers
+│
+└─ .github/workflows/upgrade-flux.yml               # GitHub Actions workflow
+        │
+        └─ Runs workflow on push or manual trigger
+                │
+                └─ Connects to AKS via Azure Service Principal
+                        │
+                        └─ Upgrades selected Flux controllers in flux-system namespace
 ```
 
-- **clusters/my-cluster/flux-system/**: Contains Flux configuration files for the `my-cluster` Kubernetes cluster.
-  - `flux-version.txt`: Specifies the Flux version used. You can upgrade AKS Flux to any version by updating this file with the desired version number.
-  - `gotk-components.yaml`: Defines Flux components deployed to the cluster.
-  - `gotk-sync.yaml`: Configures synchronization between the cluster and this Git repository.
-  - `kustomization.yaml`: Manages resources using Kustomize.
+## Prerequisites
 
-## Getting Started
+- Azure Account with an AKS cluster (resource group, e.g., `SasinduAKS`).
+- Service Principal with Contributor access to AKS resource group.
+- GitHub Repository with:
+  - `clusters/my-cluster/flux-system/flux-version.txt`
+  - `.github/workflows/upgrade-flux.yml` workflow file
+- GitHub Secret `creds` containing Service Principal JSON:
+  ```json
+  {
+    "clientId": "<APP_ID>",
+    "clientSecret": "<PASSWORD>",
+    "subscriptionId": "<SUBSCRIPTION_ID>",
+    "tenantId": "<TENANT_ID>"
+  }
+  ```
 
-1. **Install Flux CLI**
-   - Follow the [official Flux installation guide](https://fluxcd.io/docs/installation/) to install the CLI.
+## Folder Structure
 
-2. **Bootstrap Flux on AKS**
-   - Use the Flux CLI to bootstrap your AKS cluster:
-     ```bash
-     flux bootstrap azure \
-       --resource-group <resource-group> \
-       --cluster-name <aks-cluster-name> \
-       --git-url=https://github.com/<your-org>/Flux-GitOpsonAKS \
-       --git-path=clusters/my-cluster/flux-system
-     ```
+```
+Flux-GitOpsonAKS/
+├─ clusters/
+│   └─ my-cluster/
+│       └─ flux-system/
+│           └─ flux-version.txt   # desired versions of controllers
+└─ .github/
+    └─ workflows/
+        └─ upgrade-flux.yml       # GitHub Actions workflow
+```
 
-3. **Manage Cluster Resources**
-   - Edit the files in `clusters/my-cluster/flux-system/` to update your cluster configuration.
-   - Changes pushed to the repository will be automatically applied to the cluster by Flux.
+## Step 1: Set Desired Flux Versions
 
-4. **Configure Azure Service Principal**
-   - Paste your Azure Service Principal credentials into a Kubernetes Secret manifest (YAML) inside the Git repository, typically under `clusters/my-cluster/flux-system/`.
-   - Example secret manifest:
-     ```yaml
-     apiVersion: v1
-     kind: Secret
-     metadata:
-       name: azure-service-principal
-       namespace: flux-system
-     type: Opaque
-     stringData:
-       AZURE_CLIENT_ID: <your-client-id>
-       AZURE_TENANT_ID: <your-tenant-id>
-       AZURE_CLIENT_SECRET: <your-client-secret>
-     ```
-   - Commit and push the secret manifest to the repository. Flux will apply it to your cluster.
+Edit `clusters/my-cluster/flux-system/flux-version.txt`:
 
-## GitHub Actions
+```
+kustomize-controller:v1.3.1
+notification-controller:v1.3.1
+```
 
-- The repository may include GitHub Actions workflows (e.g., `.github/workflows/flux-upgrade.yml`) to automate upgrades and maintenance tasks for Flux components.
+Only include the controllers you want to upgrade. The left side is the deployment name, right side is the image version.
+
+## Step 2: Push Changes to Git
+
+```bash
+git add clusters/my-cluster/flux-system/flux-version.txt
+git commit -m "Update Flux controller versions"
+git push origin main
+```
+
+This triggers the GitHub Actions workflow automatically.
+
+## Step 3: GitHub Actions Workflow
+
+The workflow `.github/workflows/upgrade-flux.yml` does the following:
+
+1. Checks out the repository.
+2. Logs in to Azure using `creds`.
+3. Retrieves AKS credentials.
+4. Optionally installs Flux CLI for verification.
+5. Iterates over `flux-version.txt` and upgrades the listed controllers using `kubectl set image`.
+6. Verifies the upgrade by listing deployments and pods.
+
+## Step 4: Manual Trigger (Optional)
+
+You can manually trigger the workflow from GitHub:
+
+- Go to **Actions → GitOps Flux Upgrade → Run workflow → main → Run workflow**.
+
+## Step 5: Verify Upgrades
+
+After the workflow completes:
+
+```bash
+kubectl -n flux-system get deployments
+kubectl -n flux-system get pods
+```
+
+You should see the updated versions in the IMAGE column for each upgraded controller.
+
+## Notes
+
+- **Idempotent workflow:** Re-running with the same versions will have no effect.
+- **Extending workflow:** You can add other Flux components (e.g., helm-controller) to `flux-version.txt` to upgrade them as well.
+- **GitOps advantage:** All upgrades are tracked in Git. You can revert by changing the version file.
 
 ## References
 
-- [Flux Documentation](https://fluxcd.io/docs/)
-- [Kustomize Documentation](https://kubectl.docs.kubernetes.io/pages/app_management/introduction.html)
+- [Flux CD](https://fluxcd.io/)
+- [GitOps with Flux](https://fluxcd.io/docs/gitops/)
+- [Azure AKS](https://learn.microsoft.com/en-us/azure/aks/)
+- [Azure Login GitHub Action](https://github.com/Azure/login)
 
 ## License
 
