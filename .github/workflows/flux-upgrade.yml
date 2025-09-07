@@ -29,11 +29,11 @@ jobs:
           curl -s https://fluxcd.io/install.sh | sudo FLUX_VERSION=$FLUX_VERSION bash
           flux --version
 
-      # 4️⃣ Login to Azure
+      # 4️⃣ Login azure
       - name: Azure login
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          creds: ${{ secrets.azure }}
 
       # 5️⃣ Get AKS credentials
       - name: Get AKS credentials
