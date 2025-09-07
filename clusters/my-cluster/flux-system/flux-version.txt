@@ -1,1 +1,4 @@
-2.6.4
+helm-controller:1.1.0
+kustomize-controller:1.4.0
+notification-controller:1.4.0
+source-controller:1.4.0
