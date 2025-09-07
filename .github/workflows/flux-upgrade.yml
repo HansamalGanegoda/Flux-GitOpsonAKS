@@ -14,7 +14,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      # 2️⃣ Set Flux version from file (do NOT add 'v', keep plain version)
+      # 2️⃣ Set Flux version from file
       - name: Set Flux version
         id: flux-version
         run: |
@@ -22,7 +22,7 @@ jobs:
           echo "FLUX_VERSION=$VERSION" >> $GITHUB_ENV
           echo "Flux version set to $VERSION"
 
-      # 3️⃣ Install Flux CLI
+      # 3️⃣ Install Flux CLI (version without 'v')
       - name: Install Flux CLI
         run: |
           curl -s https://fluxcd.io/install.sh | sudo FLUX_VERSION=$FLUX_VERSION bash
@@ -39,10 +39,10 @@ jobs:
         run: |
           az aks get-credentials --resource-group SasinduAKS --name sasinduAKS --overwrite-existing
 
-      # 6️⃣ Apply Flux upgrade in the cluster
+      # 6️⃣ Apply Flux upgrade (version MUST start with 'v')
       - name: Apply Flux upgrade
         run: |
-          flux install --version=$FLUX_VERSION --namespace=flux-system \
+          flux install --version=v$FLUX_VERSION --namespace=flux-system \
           --components=source-controller,kustomize-controller,helm-controller,notification-controller
 
       # 7️⃣ Verify Flux version in AKS
