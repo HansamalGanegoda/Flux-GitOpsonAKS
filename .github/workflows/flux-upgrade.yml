@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'clusters/my-cluster/flux-system/flux-version.txt'
   workflow_dispatch:
 
 jobs:
@@ -22,7 +24,7 @@ jobs:
           echo "FLUX_VERSION=$VERSION" >> $GITHUB_ENV
           echo "Flux version set to $VERSION"
 
-      # 3️⃣ Install Flux CLI (version without 'v')
+      # 3️⃣ Install Flux CLI
       - name: Install Flux CLI
         run: |
           curl -s https://fluxcd.io/install.sh | sudo FLUX_VERSION=$FLUX_VERSION bash
@@ -39,13 +41,27 @@ jobs:
         run: |
           az aks get-credentials --resource-group SasinduAKS --name sasinduAKS --overwrite-existing
 
-      # 6️⃣ Apply Flux upgrade (version MUST start with 'v')
-      - name: Apply Flux upgrade
+      # 6️⃣ Upgrade Flux if already bootstrapped, otherwise install
+      - name: Upgrade or Install Flux
         run: |
-          flux install --version=v$FLUX_VERSION --namespace=flux-system \
-          --components=source-controller,kustomize-controller,helm-controller,notification-controller
+          # Check if Flux is already installed
+          if kubectl get ns flux-system &> /dev/null; then
+            echo "Flux detected, upgrading using bootstrap..."
+            flux bootstrap github \
+              --owner=HansamalGanegoda \
+              --repository=Flux-GitOpsonAKS \
+              --branch=main \
+              --path=clusters/my-cluster/flux-system \
+              --personal \
+              --version=v$FLUX_VERSION \
+              --components=source-controller,kustomize-controller,helm-controller,notification-controller
+          else
+            echo "No Flux installation found, installing fresh..."
+            flux install --version=v$FLUX_VERSION --namespace=flux-system \
+              --components=source-controller,kustomize-controller,helm-controller,notification-controller
+          fi
 
       # 7️⃣ Verify Flux version in AKS
-      - name: Verify Flux version
+      - name: Verify Flux components
         run: |
           kubectl -n flux-system get deploy -o yaml | grep image
