@@ -1,4 +1,4 @@
-name: Flux Self-Upgrade
+name: GitOps Flux Upgrade
 
 on:
   push:
@@ -16,52 +16,34 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      # 2️⃣ Set Flux version from file
-      - name: Set Flux version
-        id: flux-version
-        run: |
-          VERSION=$(cat clusters/my-cluster/flux-system/flux-version.txt)
-          echo "FLUX_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "Flux version set to $VERSION"
-
-      # 3️⃣ Install Flux CLI
-      - name: Install Flux CLI
-        run: |
-          curl -s https://fluxcd.io/install.sh | sudo FLUX_VERSION=$FLUX_VERSION bash
-          flux --version
-
-      # 4️⃣ Azure login
+      # 2️⃣ Azure login
       - name: Azure login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.azure }}
 
-      # 5️⃣ Get AKS credentials
+      # 3️⃣ Get AKS credentials
       - name: Get AKS credentials
         run: |
           az aks get-credentials --resource-group SasinduAKS --name sasinduAKS --overwrite-existing
 
-      # 6️⃣ Upgrade Flux if already bootstrapped, otherwise install
-      - name: Upgrade or Install Flux
+      # 4️⃣ Install Flux CLI (optional, for local commands)
+      - name: Install Flux CLI
         run: |
-          # Check if Flux is already installed
-          if kubectl get ns flux-system &> /dev/null; then
-            echo "Flux detected, upgrading using bootstrap..."
-            flux bootstrap github \
-              --owner=HansamalGanegoda \
-              --repository=Flux-GitOpsonAKS \
-              --branch=main \
-              --path=clusters/my-cluster/flux-system \
-              --personal \
-              --version=v$FLUX_VERSION \
-              --components=source-controller,kustomize-controller,helm-controller,notification-controller
-          else
-            echo "No Flux installation found, installing fresh..."
-            flux install --version=v$FLUX_VERSION --namespace=flux-system \
-              --components=source-controller,kustomize-controller,helm-controller,notification-controller
-          fi
+          curl -s https://fluxcd.io/install.sh | sudo bash
+          flux --version
 
-      # 7️⃣ Verify Flux version in AKS
-      - name: Verify Flux components
+      # 5️⃣ Upgrade Flux components based on flux-version.txt
+      - name: Upgrade Flux components
         run: |
-          kubectl -n flux-system get deploy -o yaml | grep image
+          echo "Upgrading Flux components in cluster..."
+          while IFS=: read -r component version; do
+            echo "Upgrading $component to $version"
+            kubectl -n flux-system set image deployment/$component $component=ghcr.io/fluxcd/$component:$version
+          done < clusters/my-cluster/flux-system/flux-version.txt
+
+      # 6️⃣ Verify upgrade
+      - name: Verify upgraded components
+        run: |
+          kubectl -n flux-system get deployments -o wide
+          kubectl -n flux-system get pods
