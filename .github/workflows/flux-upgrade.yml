@@ -4,8 +4,7 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'clusters/my-cluster/flux-system/flux-version.txt'
+  workflow_dispatch:
 
 jobs:
   upgrade-flux:
@@ -19,6 +18,7 @@ jobs:
         run: |
           VERSION=$(cat clusters/my-cluster/flux-system/flux-version.txt)
           echo "FLUX_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Flux version set to $VERSION"
 
       - name: Install Flux CLI
         run: |
