@@ -14,12 +14,15 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      # 2️⃣ Set Flux version from file and remove leading 'v' if present
+      # 2️⃣ Set Flux version from file and ensure it has leading 'v'
       - name: Set Flux version
         id: flux-version
         run: |
           VERSION=$(cat clusters/my-cluster/flux-system/flux-version.txt)
-          VERSION=${VERSION#v}   # Remove leading 'v' if exists
+          # Add 'v' prefix if missing
+          if [[ $VERSION != v* ]]; then
+            VERSION="v$VERSION"
+          fi
           echo "FLUX_VERSION=$VERSION" >> $GITHUB_ENV
           echo "Flux version set to $VERSION"
 
@@ -29,11 +32,11 @@ jobs:
           curl -s https://fluxcd.io/install.sh | sudo FLUX_VERSION=$FLUX_VERSION bash
           flux --version
 
-      # 4️⃣ Login azure
+      # 4️⃣ Azure login
       - name: Azure login
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.azure }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       # 5️⃣ Get AKS credentials
       - name: Get AKS credentials
