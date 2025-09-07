@@ -14,15 +14,11 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      # 2️⃣ Set Flux version from file and ensure it has leading 'v'
+      # 2️⃣ Set Flux version from file (do NOT add 'v', keep plain version)
       - name: Set Flux version
         id: flux-version
         run: |
           VERSION=$(cat clusters/my-cluster/flux-system/flux-version.txt)
-          # Add 'v' prefix if missing
-          if [[ $VERSION != v* ]]; then
-            VERSION="v$VERSION"
-          fi
           echo "FLUX_VERSION=$VERSION" >> $GITHUB_ENV
           echo "Flux version set to $VERSION"
 
@@ -48,3 +44,8 @@ jobs:
         run: |
           flux install --version=$FLUX_VERSION --namespace=flux-system \
           --components=source-controller,kustomize-controller,helm-controller,notification-controller
+
+      # 7️⃣ Verify Flux version in AKS
+      - name: Verify Flux version
+        run: |
+          kubectl -n flux-system get deploy -o yaml | grep image
