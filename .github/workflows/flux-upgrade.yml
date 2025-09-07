@@ -16,7 +16,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      # 2️⃣ Azure login
+      # 2️⃣ Azure login using creds
       - name: Azure login
         uses: azure/login@v1
         with:
@@ -27,19 +27,22 @@ jobs:
         run: |
           az aks get-credentials --resource-group SasinduAKS --name sasinduAKS --overwrite-existing
 
-      # 4️⃣ Install Flux CLI (optional, for local commands)
+      # 4️⃣ Install Flux CLI (optional, for verification)
       - name: Install Flux CLI
         run: |
+          sudo apt update && sudo apt install -y curl
           curl -s https://fluxcd.io/install.sh | sudo bash
           flux --version
 
-      # 5️⃣ Upgrade Flux components based on flux-version.txt
-      - name: Upgrade Flux components
+      # 5️⃣ Upgrade controllers based on flux-version.txt
+      - name: Upgrade selected Flux components
         run: |
-          echo "Upgrading Flux components in cluster..."
-          while IFS=: read -r component version; do
-            echo "Upgrading $component to $version"
-            kubectl -n flux-system set image deployment/$component $component=ghcr.io/fluxcd/$component:$version
+          echo "Upgrading Flux components listed in flux-version.txt..."
+          while IFS=: read -r deployment version; do
+            deployment=$(echo $deployment | xargs)
+            version=$(echo $version | xargs)
+            echo "Upgrading $deployment to $version"
+            kubectl -n flux-system set image deployment/$deployment manager=ghcr.io/fluxcd/$deployment:$version
           done < clusters/my-cluster/flux-system/flux-version.txt
 
       # 6️⃣ Verify upgrade

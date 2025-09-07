@@ -1,4 +1,2 @@
-helm-controller:1.1.0
-kustomize-controller:1.4.0
-notification-controller:1.4.0
-source-controller:1.4.0
+kustomize-controller:v1.3.1
+notification-controller:v1.3.1
