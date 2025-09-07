@@ -10,28 +10,37 @@ jobs:
   upgrade-flux:
     runs-on: ubuntu-latest
     steps:
+      # 1️⃣ Checkout repository
       - name: Checkout repo
         uses: actions/checkout@v3
 
+      # 2️⃣ Set Flux version from file and remove leading 'v' if present
       - name: Set Flux version
         id: flux-version
         run: |
           VERSION=$(cat clusters/my-cluster/flux-system/flux-version.txt)
+          VERSION=${VERSION#v}   # Remove leading 'v' if exists
           echo "FLUX_VERSION=$VERSION" >> $GITHUB_ENV
           echo "Flux version set to $VERSION"
 
+      # 3️⃣ Install Flux CLI
       - name: Install Flux CLI
         run: |
           curl -s https://fluxcd.io/install.sh | sudo FLUX_VERSION=$FLUX_VERSION bash
           flux --version
 
-      - name: Connect to AKS
-        uses: azure/aks-set-context@v2
+      # 4️⃣ Login to Azure
+      - name: Azure login
+        uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-          cluster-name: sasinduAKS
-          resource-group: SasinduAKS
 
+      # 5️⃣ Get AKS credentials
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials --resource-group SasinduAKS --name sasinduAKS --overwrite-existing
+
+      # 6️⃣ Apply Flux upgrade in the cluster
       - name: Apply Flux upgrade
         run: |
           flux install --version=$FLUX_VERSION --namespace=flux-system \
