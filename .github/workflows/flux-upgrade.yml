@@ -29,8 +29,8 @@ jobs:
         uses: azure/aks-set-context@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-          cluster-name: <YOUR_AKS_CLUSTER_NAME>
-          resource-group: <YOUR_RESOURCE_GROUP>
+          cluster-name: sasinduAKS
+          resource-group: SasinduAKS
 
       - name: Apply Flux upgrade
         run: |
