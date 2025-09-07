@@ -1,0 +1,38 @@
+name: Flux Self-Upgrade
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'clusters/my-cluster/flux-system/flux-version.txt'
+
+jobs:
+  upgrade-flux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set Flux version
+        id: flux-version
+        run: |
+          VERSION=$(cat clusters/my-cluster/flux-system/flux-version.txt)
+          echo "FLUX_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Install Flux CLI
+        run: |
+          curl -s https://fluxcd.io/install.sh | sudo FLUX_VERSION=$FLUX_VERSION bash
+          flux --version
+
+      - name: Connect to AKS
+        uses: azure/aks-set-context@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          cluster-name: <YOUR_AKS_CLUSTER_NAME>
+          resource-group: <YOUR_RESOURCE_GROUP>
+
+      - name: Apply Flux upgrade
+        run: |
+          flux install --version=$FLUX_VERSION --namespace=flux-system \
+          --components=source-controller,kustomize-controller,helm-controller,notification-controller
